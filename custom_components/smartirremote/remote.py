@@ -135,6 +135,15 @@ class MyRemote(RemoteEntity):
 
         self.send_action(action)
 
+    def update(self):
+
+        result = os.system(f'ping -c 1 {self._ip_address} > /dev/null')
+
+        if result != 0:
+            self._attr_available = False
+        else:
+            self._attr_available = True
+
     @property
     def state(self):
         return 'online'
