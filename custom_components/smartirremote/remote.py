@@ -20,7 +20,7 @@ CONF_LOCAL_IP = "local_ip"
 CONF_ACCESS_ID = "access_id"
 CONF_ACCESS_SECRET = "access_secret"
 CONF_DEVICE_HEAD_VALUE = "device_head_value"
-CONF_DEVICE_ACTIONS = "device_actions"
+CONF_DATA_FILE = "data_file"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
@@ -29,8 +29,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_LOCAL_IP): cv.string,
         vol.Required(CONF_ACCESS_ID): cv.string,
         vol.Required(CONF_ACCESS_SECRET): cv.string,
-        vol.Required(CONF_DEVICE_HEAD_VALUE): cv.string,
-        vol.Required(CONF_DEVICE_ACTIONS): cv.match_all
+        vol.Required(CONF_DATA_FILE): cv.string
     }
 )
 
@@ -42,14 +41,13 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         ip_address=config[CONF_LOCAL_IP],
         access_id=config[CONF_ACCESS_ID], 
         access_secret=config[CONF_ACCESS_SECRET],
-        head=config[CONF_DEVICE_HEAD_VALUE],
-        actions=config[CONF_DEVICE_ACTIONS]
+        data_file=config[CONF_DATA_FILE]
     )])
 
 
 class MyRemote(RemoteEntity):
 
-    def __init__(self, name: str, device_id: str, ip_address: str, access_id: str, access_secret: str, head: str, actions: dict) -> None:
+    def __init__(self, name: str, device_id: str, ip_address: str, access_id: str, access_secret: str, data_file: str) -> None:
 
         super().__init__()
         
@@ -60,17 +58,28 @@ class MyRemote(RemoteEntity):
         self._ip_address = ip_address
         self._access_id = access_id
         self._access_secret = access_secret
-        self._head = head
-        self._actions = copy(actions)
-        self._lower_keys(self._actions)
 
-        
         self._cloud = tinytuya.Cloud('eu', access_id, access_secret, device_id)
-        
         self._local_key = self._get_local_key()
         self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
 
+        self._head, self._actions = self._get_head_and_actions(data_file)
+
         self._device.set_version(3.3)
+
+    def _get_head_and_actions(self, data_file):
+
+        dir_name = os.path.dirname(__file__)
+        path = os.path.join(dir_name, f'data_files/{data_file}')
+
+        with open(path, 'r') as file:
+            data = file.read()
+            parsed = json.loads(data)
+
+            head = parsed["device_head"]
+            actions = parsed["actions"]
+        
+        return head, actions
 
     def _get_local_key(self):
         devices = self._cloud.getdevices()
@@ -79,22 +88,12 @@ class MyRemote(RemoteEntity):
             if device["id"] == self._device_id:
                 return device["key"]
 
-
-    def _lower_keys(self, dict):
-
-        for key in dict.keys():
-            if type(key) != str:
-                raise Exception("Keys names must be in str type!")
-        value = dict[key]
-        del dict[key]
-        dict[key.lower()] = value
-
     def _send_ir_signal(self, key1):
         command = {"control": "send_ir", "head": self._head, "key1": key1, "type": 0, " delay": 300}
         payload = self._device.generate_payload(tinytuya.CONTROL, {"201": json.dumps(command)})
         self._device.send(payload)
 
-    def send_action(self, action_name: str):
+    def _send_action(self, action_name: str):
 
         try:
             ir_key1 = self._actions[action_name.lower()]
@@ -133,7 +132,7 @@ class MyRemote(RemoteEntity):
 
         action = self._get_action_from_command(command)
 
-        self.send_action(action)
+        self._send_action(action)
 
     def update(self):
 
