@@ -138,12 +138,7 @@ class MyRemote(RemoteEntity):
 
     @property
     def state(self):
-        print("Status checked")
-        response = os.system(f'ping -c 1 {self._ip_address}')
-        if response == 0:
-            return 'online'
-        else:
-            return 'offline'
+        return 'online'
 
     class UnknownAction(Exception):
         pass
