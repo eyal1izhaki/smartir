@@ -77,7 +77,6 @@ class MyRemote(RemoteEntity):
 
         for device in devices:
             if device["id"] == self._device_id:
-                print(device["key"])
                 return device["key"]
 
 
