@@ -1,0 +1,52 @@
+{
+    "device_head": "010ece0000000000040014003e00ab00ca",
+
+    "actions": {
+        "off": "002$$0030B24D7B84E01F@%",
+
+        "on_cold_low_17": "002$$0030B24D9F6000FF@%",
+        "on_cold_low_18": "002$$0030B24D9F6010EF@%",
+        "on_cold_low_19": "002$$0030B24D9F6030CF@%",
+        "on_cold_low_20": "002$$0030B24D9F6020DF@%",
+        "on_cold_low_21": "002$$0030B24D9F60609F@%",
+        "on_cold_low_22": "002$$0030B24D9F60708F@%",
+        "on_cold_low_23": "002$$0030B24D9F6050AF@%",
+        "on_cold_low_24": "002$$0030B24D9F6040BF@%",
+        "on_cold_low_25": "002$$0030B24D9F60C03F@%",
+        "on_cold_low_26": "002$$0030B24D9F60D02F@%",
+        "on_cold_low_27": "002$$0030B24D9F60906F@%",
+        "on_cold_low_28": "002$$0030B24D9F60807F@%",
+        "on_cold_low_29": "002$$0030B24D9F60A05F@%",
+        "on_cold_low_30": "002$$0030B24D9F60B04F@%",
+
+        "on_cold_middle_17": "002$$0030B24D5FA000FF@%",
+        "on_cold_middle_18": "002$$0030B24D5FA010EF@%",
+        "on_cold_middle_19": "002$$0030B24D5FA030CF@%",
+        "on_cold_middle_20": "002$$0030B24D5FA020DF@%",
+        "on_cold_middle_21": "002$$0030B24D5FA0609F@%",
+        "on_cold_middle_22": "002$$0030B24D5FA0708F@%",
+        "on_cold_middle_23": "002$$0030B24D5FA050AF@%",
+        "on_cold_middle_24": "002$$0030B24D5FA040BF@%",
+        "on_cold_middle_25": "002$$0030B24D5FA0C03F@%",
+        "on_cold_middle_26": "002$$0030B24D5FA0D02F@%",
+        "on_cold_middle_27": "002$$0030B24D5FA0906F@%",
+        "on_cold_middle_28": "002$$0030B24D5FA0807F@%",
+        "on_cold_middle_29": "002$$0030B24D5FA0A05F@%",
+        "on_cold_middle_30": "002$$0030B24D5FA0B04F@%",
+        
+        "on_cold_high_17": "002$$0030B24D3FC000FF@%",
+        "on_cold_high_18": "002$$0030B24D3FC010EF@%",
+        "on_cold_high_19": "002$$0030B24D3FC030CF@%",
+        "on_cold_high_20": "002$$0030B24D3FC020DF@%",
+        "on_cold_high_21": "002$$0030B24D3FC0609F@%",
+        "on_cold_high_22": "002$$0030B24D3FC0708F@%",
+        "on_cold_high_23": "002$$0030B24D3FC050AF@%",
+        "on_cold_high_24": "002$$0030B24D3FC040BF@%",
+        "on_cold_high_25": "002$$0030B24D3FC0C03F@%",
+        "on_cold_high_26": "002$$0030B24D3FC0D02F@%",
+        "on_cold_high_27": "002$$0030B24D3FC0906F@%",
+        "on_cold_high_28": "002$$0030B24D3FC0807F@%",
+        "on_cold_high_29": "002$$0030B24D3FC0A05F@%",
+        "on_cold_high_30": "002$$0030B24D3FC0B04F@%"
+    }
+}
