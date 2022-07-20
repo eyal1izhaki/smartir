@@ -1,0 +1,11 @@
+{
+    "domain": "smartirremote",
+    "name": "Smart IR Remote Control",
+    "version": "0.0.1",
+    "documentation": "",
+    "dependencies": [],
+    "codeowners": ["@eyal1izhai"],
+    "requirements": ["tinytuya==1.6.4"],
+    "iot_class": "assumed_state"
+  }
+  
