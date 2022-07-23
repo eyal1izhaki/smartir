@@ -271,8 +271,10 @@ class AirConditionerRemote(RemoteEntity):
 
         if result != 0:
             self._attr_available = False
-        else:
+        elif self._attr_available == False: # Only if previously was unavailable.
             self._attr_available = True
+            self._local_key = self._get_local_key() # Updating local key.
+
 
         self._attr_extra_state_attributes['power'] = self.current_power
         self._attr_extra_state_attributes['mode'] = self.current_mode
