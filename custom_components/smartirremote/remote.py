@@ -79,10 +79,12 @@ class AirConditionerRemote(RemoteEntity):
         self._access_id = access_id
         self._access_secret = access_secret
         self._cloud = tinytuya.Cloud('eu', access_id, access_secret, device_id)
+
         self._local_key = self._get_local_key()
         self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
-        self._head, self._actions = self._get_head_and_actions(data_file)
         self._device.set_version(3.3)
+
+        self._head, self._actions = self._get_head_and_actions(data_file)
 
     @property
     def current_power(self):
@@ -273,7 +275,11 @@ class AirConditionerRemote(RemoteEntity):
             self._attr_available = False
         elif self._attr_available == False: # Only if previously was unavailable.
             self._attr_available = True
-            self._local_key = self._get_local_key() # Updating local key.
+
+            # Reconnecting to the device, using the new local key.
+            self._local_key = self._get_local_key()
+            self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
+            self._device.set_version(3.3)
 
 
         self._attr_extra_state_attributes['power'] = self.current_power
