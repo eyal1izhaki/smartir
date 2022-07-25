@@ -1,6 +1,5 @@
 # smartir
-Home Assistant custom component to control Tuya S06 Smart IR device
-
+Home Assistant custom component to control your Air Conditioner using Tuya S06 Smart IR device
 
 # This component is under development, Please feel free to open an issue for any question or a bug.
 
