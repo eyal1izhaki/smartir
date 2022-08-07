@@ -15,3 +15,6 @@ class UnknownFanSpeed(Exception):
 
 class UnknownPowerMode(Exception):
     pass
+
+class DeviceNotFoundOnLan(Exception):
+    pass

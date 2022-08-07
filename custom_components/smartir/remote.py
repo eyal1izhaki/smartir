@@ -5,13 +5,14 @@ from homeassistant.components.remote import RemoteEntity
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_NAME
 import tinytuya
-from copy import copy
 import json
 import os
+import logging
 
 from .const import *
 from .exceptions import *
 
+_LOGGER = logging.getLogger(__name__)
 
 __version__ = "0.0.1"
 
@@ -25,16 +26,18 @@ CONF_ACCESS_ID = "access_id"
 CONF_ACCESS_SECRET = "access_secret"
 CONF_DEVICE_HEAD_VALUE = "device_head_value"
 CONF_DATA_FILE = "data_file"
+CONF_DEBUG = "debug"
 
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_NAME): cv.string,
         vol.Required(CONF_DEVICE_ID): cv.string,
-        vol.Required(CONF_LOCAL_IP): cv.string,
         vol.Required(CONF_ACCESS_ID): cv.string,
         vol.Required(CONF_ACCESS_SECRET): cv.string,
-        vol.Required(CONF_DATA_FILE): cv.string
+        vol.Required(CONF_DATA_FILE): cv.string,
+        vol.Optional(CONF_LOCAL_IP): cv.string,
+        vol.Optional(CONF_DEBUG): cv.string
     }
 )
 
@@ -43,16 +46,20 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
     add_devices([AirConditionerRemote(
         name = config[CONF_NAME],
         device_id=config[CONF_DEVICE_ID],
-        ip_address=config[CONF_LOCAL_IP],
         access_id=config[CONF_ACCESS_ID], 
         access_secret=config[CONF_ACCESS_SECRET],
-        data_file=config[CONF_DATA_FILE]
+        data_file=config[CONF_DATA_FILE],
+        ip_address=config.get(CONF_LOCAL_IP),
+        debug=config.get(CONF_DEBUG, False)
     )])
 
 
 class AirConditionerRemote(RemoteEntity):
 
-    def __init__(self, name: str, device_id: str, ip_address: str, access_id: str, access_secret: str, data_file: str) -> None:
+    def __init__(self, name: str, device_id: str, access_id: str, access_secret: str, data_file: str, ip_address:str | None, debug: bool) -> None:
+
+        if debug == True:
+            _LOGGER.setLevel(logging.DEBUG)
 
         super().__init__()
 
@@ -73,18 +80,23 @@ class AirConditionerRemote(RemoteEntity):
             "temperature": self.current_temperature
         }
 
+        # Whether the device have a static ip in lan or not.
+        self._static_ip = True if ip_address is not None else False
+
         # Tyua stuff
         self._device_id = device_id
-        self._ip_address = ip_address
         self._access_id = access_id
         self._access_secret = access_secret
+        self._ip_address = ip_address
+
+        _LOGGER.debug(f"Creating tinytuya 'Cloud' instance with these parameters: region='eu', access_id='{access_id}', access_secret='{'*' * len(access_secret)}', device_id={device_id}")
         self._cloud = tinytuya.Cloud('eu', access_id, access_secret, device_id)
 
-        self._local_key = self._get_local_key()
-        self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
-        self._device.set_version(3.3)
+        self.create_device_connection()
 
+        _LOGGER.debug("Loading data file...")
         self._head, self._actions = self._get_head_and_actions(data_file)
+        _LOGGER.debug(f"{len(self._actions)} actions loaded.")
 
     @property
     def current_power(self):
@@ -134,6 +146,35 @@ class AirConditionerRemote(RemoteEntity):
     def state(self):
         return 'online'
 
+    def create_device_connection(self):
+        """
+        Creates new tinytuya 'Device' instance with the currect ip address and local key.
+
+        This function is being called on creating and when the device status changes from unavailable to online.
+        Then we need to retrive the correct local key and the ip address of the device.
+        
+        """
+
+        if self._static_ip == False:
+            
+            self._ip_address = ""
+
+            # Scanning the netwotk to get device ip address
+            devices_on_lan = tinytuya.deviceScan()
+
+            for key in devices_on_lan.keys():
+                if devices_on_lan[key]["id"] == self._device_id:
+                    self._ip_address = devices_on_lan[key]["ip"]
+            
+            if self._ip_address == "":
+                raise DeviceNotFoundOnLan
+
+        self._local_key = self._get_local_key()
+
+        _LOGGER.debug(f"Creating tinytuya 'Device' instance with these parameters: device_id='{self._device_id}', ip_address='{self._ip_address}', local_key: '{self._local_key}'")
+        self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
+        self._device.set_version(3.3)
+
     def _get_head_and_actions(self, data_file):
         """
         Reads data file and retuns the 'head' value (tyua IR stuff) and the IR actions
@@ -156,11 +197,18 @@ class AirConditionerRemote(RemoteEntity):
         Returns 'local_key' code. Used for tyua local communicating with the IR device
         """
 
+        _LOGGER.debug("Retriving new local key...")
+
+        local_key = ""
         devices = self._cloud.getdevices()
 
         for device in devices:
             if device["id"] == self._device_id:
-                return device["key"]
+                local_key = device["key"]
+        
+        _LOGGER.debug(f"New local key is '{local_key}'")
+
+        return local_key
 
     def _send_ir_signal(self, key1):
         """
@@ -168,13 +216,19 @@ class AirConditionerRemote(RemoteEntity):
         """
 
         command = {"control": "send_ir", "head": self._head, "key1": key1, "type": 0, " delay": 300}
+        _LOGGER.debug(f"Sending IR signal to the device. {command}")
+
         payload = self._device.generate_payload(tinytuya.CONTROL, {"201": json.dumps(command)})
+
+
         self._device.send(payload)
 
     def _send_action(self, action_name: str):
         """
         By a given action name, passes the corresponding IR code to _send_ir_signal function.
         """
+
+        _LOGGER.debug(f"Performing '{action_name}' action.")
 
         if action_name.startswith('off'):
             action_name = 'off'
@@ -268,17 +322,23 @@ class AirConditionerRemote(RemoteEntity):
         self.send_ir_signal_current_state()
 
     def update(self):
+        
+        _LOGGER.debug("Updating entity state...")
 
         result = os.system(f'ping -c 1 {self._ip_address} > /dev/null')
 
         if result != 0:
             self._attr_available = False
+
         elif self._attr_available == False: # Only if previously was unavailable.
             self._attr_available = True
 
             # Reconnecting to the device, using the new local key.
             self._local_key = self._get_local_key()
+
+            _LOGGER.debug(f"Creating tinytuya 'Device' instance with these parameters: device_id='{self._device_id}', ip_address='{self._ip_address}', local_key: '{self._local_key}'")
             self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
+
             self._device.set_version(3.3)
 
 
