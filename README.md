@@ -25,3 +25,7 @@ Add to homeassistant:
       access_id: <from Tuya iot>
       access_secret: <from Tuya iot>
       data_file: <a data file from smartit/data_files dir>
+
+After that, you will get a remote entity that you can use to control your air conditioner.
+
+![screenshot of the entity](https://github.com/eyal1izhaki/smartir/blob/master/screenshots/1.png)
