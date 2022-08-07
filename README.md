@@ -21,10 +21,11 @@ Add to homeassistant:
       platform: smartir
       name: <Name of the entity>
       device_id: <from Tuya iot>
-      local_ip: <local ip of the smart IR device>
+      local_ip: <local ip of the smart IR device> (optional, if specified, we won't need to scan the network to get the device ip)
       access_id: <from Tuya iot>
       access_secret: <from Tuya iot>
       data_file: <a data file from smartit/data_files dir>
+      debug: <boolean, set to true in order to get debug logs> 
 
 After that, you will get a remote entity that you can use to control your air conditioner.
 
