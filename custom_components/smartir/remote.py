@@ -325,7 +325,12 @@ class AirConditionerRemote(RemoteEntity):
         
         _LOGGER.debug("Updating entity state...")
 
-        result = os.system(f'ping -c 1 {self._ip_address} > /dev/null')
+        result = 1
+        num_of_pings = 4 # Only if 4 pings return errors, mark entity as unavailable.
+
+        while result != 0 and num_of_pings > 0:
+            result = os.system(f'ping -c 1 {self._ip_address} > /dev/null')
+            num_of_pings -= 1
 
         if result != 0:
             self._attr_available = False
