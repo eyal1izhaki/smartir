@@ -73,6 +73,7 @@ class AirConditionerRemote(RemoteEntity):
         # Home assistant entity attributes
         self._attr_name = name
         self._attr_state = None
+        self._attr_available = False
         self._attr_extra_state_attributes = {
             "power": self.current_power,
             "mode": self.current_mode,
@@ -327,10 +328,12 @@ class AirConditionerRemote(RemoteEntity):
 
         result = 1
         num_of_pings = 4 # Only if 4 pings return errors, mark entity as unavailable.
+        remaining_pings = num_of_pings
 
-        while result != 0 and num_of_pings > 0:
+        while result != 0 and remaining_pings > 0:
             result = os.system(f'ping -c 1 {self._ip_address} > /dev/null')
-            num_of_pings -= 1
+            remaining_pings -= 1
+
 
         if result != 0:
             self._attr_available = False
