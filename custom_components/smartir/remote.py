@@ -385,3 +385,5 @@ class AirConditionerRemote(RemoteEntity):
         self._attr_extra_state_attributes['mode'] = self.current_mode
         self._attr_extra_state_attributes['fan'] = self.current_fan
         self._attr_extra_state_attributes['temperature'] = self.current_temperature
+
+        self.schedule_update_ha_state()
