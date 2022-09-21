@@ -5,19 +5,20 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.components.remote import RemoteEntity
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_NAME
+
+import threading
 import tinytuya
 import json
 import os
 import logging
 import socket
-import threading
 
 from .const import *
 from .exceptions import *
 
 _LOGGER = logging.getLogger(__name__)
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 COMPONENT_REPO = "https://github.com/eyal1izhaki/smartir"
 
@@ -59,7 +60,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
 class AirConditionerRemote(RemoteEntity):
 
-    def __init__(self, name: str, device_id: str, access_id: str, access_secret: str, data_file: str, ip_address:str | None, debug: bool) -> None:
+    def __init__(self, name: str, device_id: str, access_id: str, access_secret: str, data_file: str, ip_address: str | None, debug: bool) -> None:
 
         if debug == True:
             _LOGGER.setLevel(logging.DEBUG)
@@ -72,10 +73,7 @@ class AirConditionerRemote(RemoteEntity):
         self._current_fan = 'middle'
         self._current_temperature = 21
 
-
         # Home assistant entity attributes
-
-        self.should_poll = False # We will push updates
         self._attr_name = name
         self._attr_state = None
         self._attr_available = False
@@ -98,16 +96,26 @@ class AirConditionerRemote(RemoteEntity):
         _LOGGER.debug(f"Creating tinytuya 'Cloud' instance with these parameters: region='eu', access_id='{access_id}', access_secret='{'*' * len(access_secret)}', device_id={device_id}")
         self._cloud = tinytuya.Cloud('eu', access_id, access_secret, device_id)
 
-        self.create_device_connection()
+        self._create_device_connection()
 
         _LOGGER.debug("Loading data file...")
         self._head, self._actions = self._get_head_and_actions(data_file)
         _LOGGER.debug(f"{len(self._actions)} actions loaded.")
 
+        # Running updater function in a different thread.
+        self._keep_listen = True  # Should we keep listen to UDP packets
+        self.PACKETS_TRIES = 5 # Max unsuccessful ties to get UDP pockets before changing the state to unavailable.
 
-        self._updater = threading.Thread(target=self.listen_for_packets)
-        self._updater.run()
+        self.updater = threading.Thread(target=self._listen_for_packets)
+        self.updater.start()
 
+    def __del__(self):
+        self._keep_listen = True
+        self.updater.join()
+
+    @property
+    def should_poll(self) -> bool:
+        return False
 
     @property
     def current_power(self):
@@ -157,12 +165,12 @@ class AirConditionerRemote(RemoteEntity):
     def state(self):
         return 'online'
 
-    def create_device_connection(self):
+    def _create_device_connection(self):
         """
-        Creates new tinytuya 'Device' instance with the currect ip address and local key.
+        Creates new tinytuya 'Device' instance with the correct ip address and local key.
 
         This function is being called on creating and when the device status changes from unavailable to online.
-        Then we need to retrive the correct local key and the ip address of the device.
+        Then we need to retrieve the correct local key and the ip address of the device.
         
         """
 
@@ -221,6 +229,49 @@ class AirConditionerRemote(RemoteEntity):
 
         return local_key
 
+    def _listen_for_packets(self):
+        """
+        listens for UDP packets. These packets indicate that the device is online.
+        This function will run forever and will keep the state of the device updated.
+        Whenever the state is changed. Home Assistant is being notified.
+        """
+        clients = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        clients.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        clients.bind(("", tinytuya.UDPPORTS))
+        clients.settimeout(tinytuya.TIMEOUT)
+
+        tries = 0
+        while self._keep_listen:
+
+            try:
+                data, addr = clients.recvfrom(4048)  # Getting UDP packets
+
+            except:
+                tries += 1
+                if tries > self.PACKETS_TRIES and self._attr_available == True:  # 10 unsuccessful tries to capture UDP packet, Probbably device is offline
+                    self._attr_available = False
+                    self.schedule_update_ha_state()
+                    tries = 0
+
+                continue
+
+            result = data
+
+            try:
+                result = data[20:-8]
+                result = tinytuya.decrypt_udp(result)
+            except:
+                # Invalid UDP packet
+                continue
+
+            if self._attr_available == False:
+                self._attr_available = True
+                self.schedule_update_ha_state()
+
+            tries = 0
+
+        clients.close()
+
     def _send_ir_signal(self, key1):
         """
         Sends the actual IR packet to the IR transmitter device.
@@ -230,7 +281,6 @@ class AirConditionerRemote(RemoteEntity):
         _LOGGER.debug(f"Sending IR signal to the device. {command}")
 
         payload = self._device.generate_payload(tinytuya.CONTROL, {"201": json.dumps(command)})
-
 
         self._device.send(payload)
 
@@ -267,7 +317,7 @@ class AirConditionerRemote(RemoteEntity):
 
         if self._current_temperature >= MAX_TEMP:
             return
-        self._current_temperature +=1
+        self._current_temperature += 1
 
     def decrease_temperature(self):
         """
@@ -284,7 +334,7 @@ class AirConditionerRemote(RemoteEntity):
         if current_index == len(POWER_MODES) - 1:
             self.current_power = POWER_MODES[0]
         else:
-            self.current_power = POWER_MODES[current_index+1]
+            self.current_power = POWER_MODES[current_index + 1]
     
     def toggle_mode(self):
         current_index = MODES.index(self.current_mode)
@@ -292,7 +342,7 @@ class AirConditionerRemote(RemoteEntity):
         if current_index == len(MODES) - 1:
             self.current_mode = MODES[0]
         else:
-            self.current_mode = MODES[current_index+1]
+            self.current_mode = MODES[current_index + 1]
     
     def toggle_fan(self):
         current_index = FAN_SPEEDS.index(self.current_fan)
@@ -300,50 +350,7 @@ class AirConditionerRemote(RemoteEntity):
         if current_index == len(FAN_SPEEDS) - 1:
             self.current_fan = FAN_SPEEDS[0]
         else:
-            self.current_fan = FAN_SPEEDS[current_index+1]
-    
-
-    def listen_for_packets(self):
-        # listens for UDP packets that indicates that the device is online.
-
-        clients = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        clients.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        clients.bind(("", tinytuya.UDPPORTS))
-        clients.settimeout(tinytuya.TIMEOUT)
-        
-        counter = 0
-
-        while True:
-
-            if counter == 10: # 10 tries to capture UDP packet
-                self._attr_available = False
-                self.schedule_update_ha_state()
-                
-            try:
-                data, addr = clients.recvfrom(4048)
-            except:
-                continue
-
-            result = data
-            try:
-                result = data[20:-8]
-                try:
-                    result = tinytuya.decrypt_udp(result)
-
-                    if self._attr_available == False:
-                        self._attr_available = True
-                        self.schedule_update_ha_state()
-
-                    counter = 0
-                    sleep(2)
-                except:
-                    result = result.decode()
-                # result = json.loads(result)
-
-            except:    
-                continue
-
-            
+            self.current_fan = FAN_SPEEDS[current_index + 1]
             
     ####################################
     # Functions used by home assistant #
@@ -378,40 +385,3 @@ class AirConditionerRemote(RemoteEntity):
         self._attr_extra_state_attributes['mode'] = self.current_mode
         self._attr_extra_state_attributes['fan'] = self.current_fan
         self._attr_extra_state_attributes['temperature'] = self.current_temperature
-
-    # def update(self):
-        
-    #     _LOGGER.debug("Updating entity state...")
-
-    #     result = 1
-    #     num_of_pings = 4 # Only if 4 pings return errors, mark entity as unavailable.
-    #     remaining_pings = num_of_pings
-
-    #     while result != 0 and remaining_pings > 0:
-    #         result = os.system(f'ping -c 1 -s 0 -W 1 {self._ip_address} > /dev/null')
-    #         print(result)
-    #         print(f"Performing ping command (ping -c 1 -s 0 -W 1 {self._ip_address} > /dev/null)")
-    #         remaining_pings -= 1
-
-
-    #     if result != 0:
-    #         self._attr_available = False
-
-    #     elif self._attr_available == False: # Only if previously was unavailable.
-    #         self._attr_available = True
-
-    #         self.create_device_connection()
-
-
-    #     self._attr_extra_state_attributes['power'] = self.current_power
-    #     self._attr_extra_state_attributes['mode'] = self.current_mode
-    #     self._attr_extra_state_attributes['fan'] = self.current_fan
-    #     self._attr_extra_state_attributes['temperature'] = self.current_temperature
-
-
-    #     _LOGGER.debug(f"Entity state updated. availability state is '{self._attr_available}' now")
-
-
-
-
-
