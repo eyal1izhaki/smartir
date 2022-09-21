@@ -363,6 +363,9 @@ class AirConditionerRemote(RemoteEntity):
         self._attr_extra_state_attributes['temperature'] = self.current_temperature
 
 
+        _LOGGER.debug(f"Entity state updated. availability state is '{self._attr_available}' now")
+
+
 
 
 
