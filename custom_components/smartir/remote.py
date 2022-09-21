@@ -2,7 +2,6 @@ from time import sleep
 from typing import Iterable
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers import schedule_update_ha_state
 from homeassistant.components.remote import RemoteEntity
 from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_NAME
@@ -318,7 +317,7 @@ class AirConditionerRemote(RemoteEntity):
 
             if counter == 10: # 10 tries to capture UDP packet
                 self._attr_available = False
-                schedule_update_ha_state()
+                self.schedule_update_ha_state()
                 
             try:
                 data, addr = clients.recvfrom(4048)
@@ -333,7 +332,7 @@ class AirConditionerRemote(RemoteEntity):
 
                     if self._attr_available == False:
                         self._attr_available = True
-                        schedule_update_ha_state()
+                        self.schedule_update_ha_state()
 
                     counter = 0
                     sleep(2)
