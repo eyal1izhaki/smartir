@@ -99,6 +99,8 @@ class AirConditionerRemote(RemoteEntity):
         self._head, self._actions = self._get_head_and_actions(data_file)
         _LOGGER.debug(f"{len(self._actions)} actions loaded.")
 
+        self.update()
+
     @property
     def current_power(self):
         return self._current_power
