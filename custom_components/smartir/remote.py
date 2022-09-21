@@ -175,7 +175,7 @@ class AirConditionerRemote(RemoteEntity):
         _LOGGER.debug(f"Creating tinytuya 'Device' instance with these parameters: device_id='{self._device_id}', ip_address='{self._ip_address}', local_key: '{self._local_key}'")
         self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
         self._device.set_version(3.3)
-
+        
     def _get_head_and_actions(self, data_file):
         """
         Reads data file and retuns the 'head' value (tyua IR stuff) and the IR actions
@@ -322,6 +322,12 @@ class AirConditionerRemote(RemoteEntity):
         
         self.send_ir_signal_current_state()
 
+        # Update attributes
+        self._attr_extra_state_attributes['power'] = self.current_power 
+        self._attr_extra_state_attributes['mode'] = self.current_mode
+        self._attr_extra_state_attributes['fan'] = self.current_fan
+        self._attr_extra_state_attributes['temperature'] = self.current_temperature
+
     def update(self):
         
         _LOGGER.debug("Updating entity state...")
@@ -331,7 +337,7 @@ class AirConditionerRemote(RemoteEntity):
         remaining_pings = num_of_pings
 
         while result != 0 and remaining_pings > 0:
-            result = os.system(f'ping -c 1 {self._ip_address} > /dev/null')
+            result = os.system(f'ping -c 1 -s 0 -W 0.4 {self._ip_address} > /dev/null')
             remaining_pings -= 1
 
 
@@ -346,7 +352,6 @@ class AirConditionerRemote(RemoteEntity):
 
             _LOGGER.debug(f"Creating tinytuya 'Device' instance with these parameters: device_id='{self._device_id}', ip_address='{self._ip_address}', local_key: '{self._local_key}'")
             self._device = tinytuya.Device(self._device_id, self._ip_address, self._local_key)
-
             self._device.set_version(3.3)
 
 
