@@ -340,6 +340,7 @@ class AirConditionerRemote(RemoteEntity):
 
         while result != 0 and remaining_pings > 0:
             result = os.system(f'ping -c 1 -s 0 -W 0.4 {self._ip_address} > /dev/null')
+            _LOGGER.debug(f"Performing ping command (ping -c 1 -s 0 -W 0.4 {self._ip_address} > /dev/null)")
             remaining_pings -= 1
 
 
